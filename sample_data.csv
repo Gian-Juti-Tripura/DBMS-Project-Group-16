@@ -1,0 +1,17 @@
+student_id,student_name,course_id,course_name,instructor_id,instructor_name,department,grade
+1,John Doe,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,A
+2,Jane Smith,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,B
+3,Bob Johnson,CSE102,Data Structures,102,Dr. Brown,Computer Science,A
+1,John Doe,CSE102,Data Structures,102,Dr. Brown,Computer Science,B
+4,Alice Wilson,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,A
+2,Jane Smith,CSE102,Data Structures,102,Dr. Brown,Computer Science,A
+5,Charlie Brown,CSE103,Database Systems,103,Dr. Jones,Computer Science,B
+3,Bob Johnson,CSE103,Database Systems,103,Dr. Jones,Computer Science,A
+1,John Doe,CSE103,Database Systems,103,Dr. Jones,Computer Science,A
+6,David Clark,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,B
+7,Emma Davis,CSE102,Data Structures,102,Dr. Brown,Computer Science,A
+8,Frank Miller,CSE103,Database Systems,103,Dr. Jones,Computer Science,B
+4,Alice Wilson,CSE102,Data Structures,102,Dr. Brown,Computer Science,A
+5,Charlie Brown,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,C
+9,Grace Lee,CSE101,Computer Science Fundamentals,101,Dr. Smith,Computer Science,A
+10,Henry Taylor,CSE102,Data Structures,102,Dr. Brown,Computer Science,B
