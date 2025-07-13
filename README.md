@@ -1,8 +1,8 @@
 # Database System Project-1: Normalization and ER Diagram Generator
 
-**Submitted by:** MD Hasib Mia  
-**ID:** 23701024  
-**Date:** July 2, 2025
+**Submitted by:** Gian Juti Tripura  
+**ID:** 22701073  
+**Date:** July 13, 2025
 
 ## Project Goal
 
