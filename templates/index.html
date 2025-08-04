@@ -35,7 +35,31 @@
                             <label for="csvFile" class="form-label">Select CSV File</label>
                             <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
                             <div class="form-text">
-                                Upload a CSV file with at least 2 columns and some sample data.
+                                Upload a CSV file with at least 2 columns. Supports large pharmaceutical datasets up to 500MB.
+                                <br><strong>Pharmaceutical Data:</strong> Columns like drug name, side effects, company, clinical trials are automatically detected.
+                            </div>
+                        </div>
+                        
+                        <!-- Dataset Type Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Dataset Type (Optional)</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="datasetType" id="autoDetect" value="auto" checked>
+                                <label class="form-check-label" for="autoDetect">
+                                    Auto-detect dataset type
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="datasetType" id="pharmaceutical" value="pharma">
+                                <label class="form-check-label" for="pharmaceutical">
+                                    Pharmaceutical/Medical dataset
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="datasetType" id="general" value="general">
+                                <label class="form-check-label" for="general">
+                                    General dataset
+                                </label>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary">
@@ -54,8 +78,32 @@
                     
                     <!-- File Info -->
                     <div id="fileInfo" class="mt-4" style="display: none;">
-                        <h5>File Information:</h5>
-                        <div id="fileDetails"></div>
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle"></i> File Upload Successful!</h5>
+                            <div id="fileDetails"></div>
+                        </div>
+                        
+                        <!-- Data Validation Results -->
+                        <div id="validationResults" class="mt-3"></div>
+                        
+                        <!-- Data Preview -->
+                        <div id="dataPreview" class="mt-3">
+                            <h6><i class="fas fa-eye"></i> Data Preview</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-striped table-sm" id="previewTable">
+                                    <thead class="table-dark sticky-top">
+                                        <tr id="previewHeaders"></tr>
+                                    </thead>
+                                    <tbody id="previewBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Dataset Statistics -->
+                        <div id="datasetStats" class="mt-3">
+                            <h6><i class="fas fa-chart-bar"></i> Dataset Statistics</h6>
+                            <div class="row" id="statsRow"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -328,32 +376,179 @@ $(document).ready(function() {
     
     function displayFileInfo(fileInfo) {
         $('#fileInfo').show();
-        $('#fileDetails').html(`
-            <div class="alert alert-success">
-                <strong>File:</strong> ${fileInfo.filename}<br>
-                <strong>Rows:</strong> ${fileInfo.rows}<br>
-                <strong>Columns:</strong> ${fileInfo.columns}<br>
-                <strong>Attributes:</strong> ${fileInfo.attributes.join(', ')}
+        
+        // Enhanced file details with performance info
+        let fileDetailsHtml = `
+            <strong>File:</strong> ${fileInfo.filename}<br>
+            <strong>Size:</strong> ${fileInfo.file_size_mb.toFixed(2)} MB<br>
+            <strong>Rows:</strong> ${fileInfo.rows.toLocaleString()}`;
+        
+        if (fileInfo.total_rows !== fileInfo.rows) {
+            fileDetailsHtml += ` (sampled from ${fileInfo.total_rows.toLocaleString()} total)`;
+        }
+        
+        fileDetailsHtml += `<br>
+            <strong>Columns:</strong> ${fileInfo.columns}<br>
+            <strong>Processing Method:</strong> ${fileInfo.processing_method}<br>
+            <strong>Memory Usage:</strong> ${fileInfo.memory_usage_mb.toFixed(1)} MB`;
+        
+        $('#fileDetails').html(fileDetailsHtml);
+        
+        // Display validation results
+        displayValidationResults(fileInfo.validation);
+        
+        // Display data preview
+        displayDataPreview(fileInfo.sample_data, fileInfo.attributes);
+        
+        // Display dataset statistics
+        displayDatasetStats(fileInfo);
+    }
+    
+    function displayValidationResults(validation) {
+        let validationHtml = '';
+        
+        if (validation.warnings && validation.warnings.length > 0) {
+            validationHtml += '<div class="alert alert-warning"><h6><i class="fas fa-exclamation-triangle"></i> Warnings:</h6><ul>';
+            validation.warnings.forEach(warning => {
+                validationHtml += `<li>${warning}</li>`;
+            });
+            validationHtml += '</ul></div>';
+        }
+        
+        if (validation.suggestions && validation.suggestions.length > 0) {
+            validationHtml += '<div class="alert alert-info"><h6><i class="fas fa-lightbulb"></i> Suggestions:</h6><ul>';
+            validation.suggestions.forEach(suggestion => {
+                validationHtml += `<li>${suggestion}</li>`;
+            });
+            validationHtml += '</ul></div>';
+        }
+        
+        if (validationHtml === '') {
+            validationHtml = '<div class="alert alert-success"><i class="fas fa-check"></i> Data validation passed with no issues!</div>';
+        }
+        
+        $('#validationResults').html(validationHtml);
+    }
+    
+    function displayDataPreview(sampleData, attributes) {
+        // Create table headers
+        let headersHtml = '';
+        attributes.forEach(attr => {
+            headersHtml += `<th>${attr}</th>`;
+        });
+        $('#previewHeaders').html(headersHtml);
+        
+        // Create table body
+        let bodyHtml = '';
+        sampleData.forEach(row => {
+            bodyHtml += '<tr>';
+            attributes.forEach(attr => {
+                let value = row[attr] || '';
+                // Truncate long values
+                if (value.length > 50) {
+                    value = value.substring(0, 47) + '...';
+                }
+                bodyHtml += `<td>${value}</td>`;
+            });
+            bodyHtml += '</tr>';
+        });
+        $('#previewBody').html(bodyHtml);
+    }
+    
+    function displayDatasetStats(fileInfo) {
+        let statsHtml = `
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">${fileInfo.total_rows.toLocaleString()}</h5>
+                        <p class="card-text">Total Rows</p>
+                    </div>
+                </div>
             </div>
-        `);
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">${fileInfo.columns}</h5>
+                        <p class="card-text">Columns</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">${fileInfo.file_size_mb.toFixed(1)} MB</h5>
+                        <p class="card-text">File Size</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">${fileInfo.is_large_dataset ? 'Large' : 'Standard'}</h5>
+                        <p class="card-text">Dataset Type</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('#statsRow').html(statsHtml);
     }
     
     function displayAnalysisResults(results) {
         $('#analysisResults').show();
         
-        // Display functional dependencies
-        var fdHtml = '<ul class="list-group">';
-        results.fd_summary.functional_dependencies.forEach(function(fd) {
-            fdHtml += `<li class="list-group-item">${fd}</li>`;
-        });
-        fdHtml += '</ul>';
+        // Display analysis timing and performance info
+        if (results.analysis_time) {
+            let perfInfo = `
+                <div class="alert alert-info">
+                    <strong>Analysis Performance:</strong><br>
+                    ⏱️ Time: ${results.analysis_time.toFixed(2)} seconds<br>
+                    💾 Memory: ${results.memory_usage_mb.toFixed(1)} MB<br>
+                    📊 Rows Analyzed: ${results.fd_summary.dataset_info.rows.toLocaleString()}
+                    ${results.fd_summary.dataset_info.is_sampled ? ` (sampled from ${results.fd_summary.dataset_info.original_rows.toLocaleString()})` : ''}
+                </div>
+            `;
+            $('#analysisResults').prepend(perfInfo);
+        }
+        
+        // Display functional dependencies with enhanced formatting
+        var fdHtml = '<div class="mb-3">';
+        if (results.fd_summary.fd_details && results.fd_summary.fd_details.length > 0) {
+            fdHtml += '<ul class="list-group">';
+            results.fd_summary.fd_details.forEach(function(fd) {
+                let badgeClass = fd.complexity === 1 ? 'bg-success' : 'bg-warning';
+                fdHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${fd.fd_str}
+                        <span class="badge ${badgeClass} rounded-pill">${fd.complexity} attr</span>
+                    </li>
+                `;
+            });
+            fdHtml += '</ul>';
+            
+            // Add FD summary statistics
+            fdHtml += `
+                <div class="mt-2">
+                    <small class="text-muted">
+                        📈 Total: ${results.fd_summary.total_fds} FDs 
+                        (${results.fd_summary.simple_fds} simple, ${results.fd_summary.complex_fds} complex)
+                    </small>
+                </div>
+            `;
+        } else {
+            fdHtml += '<div class="alert alert-warning">No functional dependencies detected.</div>';
+        }
+        fdHtml += '</div>';
         $('#fdList').html(fdHtml);
         
         // Display candidate keys
         var ckHtml = '<ul class="list-group">';
-        results.fd_summary.candidate_keys.forEach(function(key) {
-            ckHtml += `<li class="list-group-item">{${key.join(', ')}}</li>`;
-        });
+        if (results.fd_summary.candidate_keys && results.fd_summary.candidate_keys.length > 0) {
+            results.fd_summary.candidate_keys.forEach(function(key) {
+                ckHtml += `<li class="list-group-item">{${key.join(', ')}}</li>`;
+            });
+        } else {
+            ckHtml += '<li class="list-group-item text-muted">No candidate keys found</li>';
+        }
         ckHtml += '</ul>';
         $('#candidateKeys').html(ckHtml);
         
@@ -362,6 +557,66 @@ $(document).ready(function() {
         
         // Display recommendation
         $('#recommendation').html(`<div class="alert alert-info">${results.normalization_summary.recommendation}</div>`);
+        
+        // Display pharmaceutical insights if available
+        if (results.fd_summary.pharmaceutical_insights) {
+            displayPharmaceuticalInsights(results.fd_summary.pharmaceutical_insights);
+        }
+    }
+    
+    function displayPharmaceuticalInsights(insights) {
+        let insightsHtml = '<div class="mt-4"><h6><i class="fas fa-pills"></i> Pharmaceutical Data Insights</h6>';
+        
+        if (insights.drug_related_fds && insights.drug_related_fds.length > 0) {
+            insightsHtml += `
+                <div class="alert alert-primary">
+                    <strong>Drug-Related Dependencies (${insights.drug_related_fds.length}):</strong>
+                    <ul class="mb-0 mt-2">
+            `;
+            insights.drug_related_fds.forEach(fd => {
+                insightsHtml += `<li>${fd.fd_str}</li>`;
+            });
+            insightsHtml += '</ul></div>';
+        }
+        
+        if (insights.clinical_trial_fds && insights.clinical_trial_fds.length > 0) {
+            insightsHtml += `
+                <div class="alert alert-info">
+                    <strong>Clinical Trial Dependencies (${insights.clinical_trial_fds.length}):</strong>
+                    <ul class="mb-0 mt-2">
+            `;
+            insights.clinical_trial_fds.forEach(fd => {
+                insightsHtml += `<li>${fd.fd_str}</li>`;
+            });
+            insightsHtml += '</ul></div>';
+        }
+        
+        if (insights.company_related_fds && insights.company_related_fds.length > 0) {
+            insightsHtml += `
+                <div class="alert alert-secondary">
+                    <strong>Company-Related Dependencies (${insights.company_related_fds.length}):</strong>
+                    <ul class="mb-0 mt-2">
+            `;
+            insights.company_related_fds.forEach(fd => {
+                insightsHtml += `<li>${fd.fd_str}</li>`;
+            });
+            insightsHtml += '</ul></div>';
+        }
+        
+        if (insights.side_effect_patterns && insights.side_effect_patterns.length > 0) {
+            insightsHtml += `
+                <div class="alert alert-warning">
+                    <strong>Side Effect Patterns (${insights.side_effect_patterns.length}):</strong>
+                    <ul class="mb-0 mt-2">
+            `;
+            insights.side_effect_patterns.forEach(fd => {
+                insightsHtml += `<li>${fd.fd_str}</li>`;
+            });
+            insightsHtml += '</ul></div>';
+        }
+        
+        insightsHtml += '</div>';
+        $('#analysisResults').append(insightsHtml);
     }
     
     function generateSchema(type) {
@@ -405,16 +660,27 @@ $(document).ready(function() {
         
         // Display download links
         var downloadHtml = `
-            <div class="d-grid gap-2">
-                <a href="/download/schema_${type}.sql" class="btn btn-primary">
-                    <i class="fas fa-download"></i> Download SQL Schema
-                </a>
-                <a href="/download/er_diagram_${type}.png" class="btn btn-success">
-                    <i class="fas fa-download"></i> Download ER Diagram
-                </a>
-                <a href="/results" class="btn btn-info">
-                    <i class="fas fa-eye"></i> View Detailed Results
-                </a>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-grid gap-2">
+                        <a href="/download/schema_${type}.sql" class="btn btn-primary">
+                            <i class="fas fa-database"></i> Download SQL Schema
+                        </a>
+                        <a href="/download/pharmaceutical_analysis_${type}.xlsx" class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Download Excel Analysis
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-grid gap-2">
+                        <a href="/download/er_diagram_${type}.png" class="btn btn-info">
+                            <i class="fas fa-project-diagram"></i> Download ER Diagram
+                        </a>
+                        <a href="/results" class="btn btn-secondary">
+                            <i class="fas fa-eye"></i> View Detailed Results
+                        </a>
+                    </div>
+                </div>
             </div>
         `;
         $('#downloadLinks').html(downloadHtml);
